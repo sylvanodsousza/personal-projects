@@ -26,48 +26,56 @@ def get_channel_id(channel_name):
 
 
 def get_last_5_videos(channel_id):
-    uploads_url = "https://www.googleapis.com/youtube/v3/channels"
-    uploads_params = {
-        "part": "contentDetails",
-        "id": channel_id,
-        "key": API_KEY
-    }
-    uploads_response = requests.get(uploads_url, params=uploads_params).json()
-    uploads_playlist = uploads_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-
-    playlist_items_url = "https://www.googleapis.com/youtube/v3/playlistItems"
-    playlist_params = {
-        "part": "snippet",
-        "playlistId": uploads_playlist,
-        "maxResults": 5,
-        "key": API_KEY
-    }
-    videos_response = requests.get(playlist_items_url, params=playlist_params).json()
-
-    video_data = []
-    for item in videos_response["items"]:
-        video_id = item["snippet"]["resourceId"]["videoId"]
-        title = item["snippet"]["title"]
-        published = item["snippet"]["publishedAt"]
-
-        # Get view count
-        stats_url = "https://www.googleapis.com/youtube/v3/videos"
-        stats_params = {
-            "part": "statistics",
-            "id": video_id,
+    try:
+        uploads_url = "https://www.googleapis.com/youtube/v3/channels"
+        uploads_params = {
+            "part": "contentDetails",
+            "id": channel_id,
             "key": API_KEY
         }
-        stats_response = requests.get(stats_url, params=stats_params).json()
-        view_count = int(stats_response["items"][0]["statistics"].get("viewCount", 0))
+        uploads_response = requests.get(uploads_url, params=uploads_params).json()
+        uploads_playlist = uploads_response["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
-        video_data.append({
-            "video_id": video_id,
-            "title": title,
-            "published": published,
-            "views": view_count
-        })
+        playlist_items_url = "https://www.googleapis.com/youtube/v3/playlistItems"
+        playlist_params = {
+            "part": "snippet",
+            "playlistId": uploads_playlist,
+            "maxResults": 5,
+            "key": API_KEY
+        }
+        videos_response = requests.get(playlist_items_url, params=playlist_params).json()
 
-    return pd.DataFrame(video_data)
+        video_data = []
+        for item in videos_response.get("items", []):
+            try:
+                video_id = item["snippet"]["resourceId"]["videoId"]
+                title = item["snippet"]["title"]
+                published = item["snippet"]["publishedAt"]
+
+                # Get view count
+                stats_url = "https://www.googleapis.com/youtube/v3/videos"
+                stats_params = {
+                    "part": "statistics",
+                    "id": video_id,
+                    "key": API_KEY
+                }
+                stats_response = requests.get(stats_url, params=stats_params).json()
+                view_count = int(stats_response["items"][0]["statistics"].get("viewCount", 0))
+
+                video_data.append({
+                    "video_id": video_id,
+                    "title": title,
+                    "published": published,
+                    "views": view_count
+                })
+            except Exception as e:
+                print(f"⚠️ Skipped one video due to error: {e}")
+
+        return pd.DataFrame(video_data)
+
+    except Exception as e:
+        print(f"❌ Error fetching videos: {e}")
+        return pd.DataFrame()
 
 
 def get_subscriber_count(channel_id):
